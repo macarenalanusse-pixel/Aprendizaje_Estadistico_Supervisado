@@ -49,6 +49,44 @@ plataforma <- read_csv("datos_plataforma.csv")
 
 glimpse(plataforma)
 ```
+Conjunto de datos anonimizados para un subconjunto de estudiantes de educación primaria de cuarto a sexto año de contexto sociocultural alto del departamento de Canelones.
+Este conjunto de datos consite en registros de uso de una
+plataforma educativa específica para el aprendizaje de Inglés (`Little Bridge`). Cada Fila registra
+una actividad que realizá un estudiante determinado (`id_persona`) en una fecha (`Fecha`). Las
+actividades pueden realizarse más de una vez por lo que se cuenta con alguna variable que
+registra los puntos máximos y mínimos de la misma en la fecha correspondiente.
+
+- `id_persona` Identificador único del estudiante
+
+- `Grado` Grado en el que estáel estudiante de cuarto a sexto
+
+- `Grupo` Grupo en el que estáel estudiante, de A a E
+
+- `Fecha` Fecha en la que realiza la actividad
+
+- `Codigo.Actividad` Identificador de Actividad, puede tener más de una pregunta
+
+- `Minimo.Puntaje.Actividad` Máximo puntaje obtenido en la actividad, entre 0 y 1
+
+- `Maximo.Puntaje.Actividad` Mínimo puntaje obtenido en la actividad, entre 0 y 1
+
+- `LB_Total.actividades` Número total de actividades realizadas
+
+- `LB_Total.preguntas` Número totaldepreguntas que contiene la actividad
+
+- `LB_Total.preguntas.correctas` Número de preguntas respondidas correctamente
+
+- `id_centro` Identificador de centro único
+
+- `class_lb` Identificador de la Clase de Inglés
+
+- `pct_acierto_act` Proporción de preguntas correctas en la actividad
+
+- `punto` Resultados de la prueba adaptativa de inglés, variable numérica
+
+- `nivel` Notas de la prueba adaptativa de inglés, variable categórico
+
+## USAR NANIAR!!
 ```{r}
 plataforma %>%
   summarise(across(everything(), ~ sum(is.na(.))))
@@ -64,6 +102,26 @@ En las siguientes variables hay 260 datos faltantes (NA)
 - `LB_Total.preguntas`
 - `LB_Total.preguntas.correctas`
 - `pct_acierto_act`
+
+```{r}
+library(visdat)
+vis_dat(plataforma)
+```
+```{r}
+vis_miss(plataforma)
+```
+```{r}
+plataforma %>% 
+  select(ifelse(is.na(Fecha)))
+```
+
+```{r}
+## esto no carga!
+library(naniar)
+naniar::gn_case_miss(plataforma)
+
+gg_miss_upset(plataforma, nsets = n_var_miss(plataforma))
+```
 
 Veamos si las variables guardadas como "character" podrían ser factor:
 

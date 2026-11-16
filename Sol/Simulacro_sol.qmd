@@ -1,0 +1,824 @@
+---
+title: "SemiSimulacro"
+format: pdf
+---
+
+```{r, include=FALSE}
+pkg <- c(
+  "tidyverse",
+  "tidymodels",
+  "ISLR2",
+  "broom",
+  "dotwhisker",
+  "patchwork",
+  "GGally",
+  "discrim",
+  "kknn",
+  "schrute",
+  "glmnet",
+  "ggrepel",
+  "boot",
+  "bootstrap",
+  "rpart",
+  "rpart.plot",
+  "randomForest",
+  "ranger",
+  "partykit",
+  "ppforest2",
+  "classbound"
+)
+# Instalar solamente si es necesario
+# install.packages(pkg)
+
+# Cargar paquetes
+library(tidyverse)
+library(tidymodels)
+library(ISLR2)
+library(rpart.plot)
+library(ppforest2)
+library(classbound)
+```
+
+# Los datos
+
+## Carga
+
+```{r}
+carseats <- as_tibble(Carseats) %>% 
+    mutate(High = factor(if_else(Sales > 8, "Yes", "No"), levels = c("Yes", "No"))) 
+```
+
+## Explorar datos
+
+```{r}
+dim(carseats)
+sapply(carseats, class)
+```
+
+Tenemos 12 variables con los nombres detallados y 400 ubicaciones que detallan la siguiente información:
+
+-   `Sales`: Ventas unitarias (en miles) en cada ubicación.
+
+-   `CompPrice` : Precio fijado por la competencia en cada ubicación.
+
+-   `Income` : Nivel de ingresos de la comunidad (en miles de dólares).
+
+-   `Advertising` : Presupuesto de publicidad local de la empresa en cada ubicación (en miles de dólares).
+
+-   `Population` : Tamaño de la población en la región (en miles).
+
+-   `Price` : Precio que fija la empresa para los asientos de seguridad infantil en cada punto de venta.
+
+-   `ShelveLoc` : Factor con los niveles «Malo», «Bueno» y «Medio», que indica la calidad de la ubicación en los estantes.
+
+-   `Age` : Edad promedio de la población local.
+
+-   `Education` : Nivel educativo en cada ubicación.
+
+-   `Urban` : Factor con los niveles «No» y «Sí», que indica si la tienda se encuentra en una zona urbana o rural.
+
+-   `US` : Factor con los niveles «No» y «Sí», que indica si la tienda se encuentra en los Estados Unidos o no.
+
+Vamos a comprobar que la base esté lista para empezar a trabajar:
+
+```{r}
+carseats %>%
+  summarise(across(everything(), ~ sum(is.na(.))))
+```
+
+Sin valores faltantes (na).
+
+Para las variables categoricas:
+
+```{r}
+carseats %>%
+  select(where(is.factor)) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "variable",
+    values_to = "nivel"
+  ) %>%
+  count(variable, nivel)
+```
+
+`ShelveLoc`, la ubiación en gondola acumula mayor cantidad de observaciones en el nivel `Medium`. `High` presenta mayor cantidad de `No`, osea hay menos cantidad de tiendas con ingresos altos. `US` presenta más `Yes`, osea hay mayor cantidad de tiendas que están en Estados Unidos. Y en `Urban` encontramos mayor cantidad de `Yes`.
+
+Para las numericas:
+
+```{r}
+carseats %>%
+  select(where(is.numeric)) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "variable",
+    values_to = "valor"
+  ) %>%
+  group_by(variable) %>%
+  summarise(
+    media = mean(valor),
+    mediana = median(valor),
+    desvio = sd(valor),
+    minimo = min(valor),
+    Q1 = quantile(valor, 0.25),
+    Q3 = quantile(valor, 0.75),
+    maximo = max(valor)
+  )
+```
+
+`Advertising`: presenta una media (6,64) superior a la mediana (5), lo que podría indicar cierta asimetría hacia valores altos.
+
+`Population`: tiene el mayor desvío estándar (147,38), aunque esto debe interpretarse considerando su escala.
+
+# Regresión
+
+Usaremos `Sales` como variable de respuesta y podemos definir un modelo con el resto de las variables como posibles predictoras (menos `High` que es la nueva variable definida para clasificación).
+
+## Exploración de variables
+
+Hagamos graficos de dispersion de `Sales` vs variables predictoras numéricas, para visualizar la relacion con la variable de respuesta:
+
+```{r, echo=FALSE, fig.height=5, fig.width=5}
+library(patchwork)
+
+p1 <- ggplot(data = carseats, aes(x = CompPrice, y = Sales)) +
+    geom_point(alpha=0.2) +
+    theme(aspect.ratio = 1)
+p2 <- ggplot(data = carseats, aes(x = Income, y = Sales)) +
+    geom_point(alpha=0.2) +
+    theme(aspect.ratio = 1)
+p3 <- ggplot(data = carseats, aes(x = Advertising, y = Sales)) +
+    geom_point(alpha=0.2) +
+    theme(aspect.ratio = 1)
+p4 <- ggplot(data = carseats, aes(x = Population, y = Sales)) +
+    geom_point(alpha=0.2) +
+    theme(aspect.ratio = 1)
+p5 <- ggplot(data = carseats, aes(x = Price, y = Sales)) +
+    geom_point(alpha=0.2) +
+    theme(aspect.ratio = 1)
+p6 <- ggplot(data = carseats, aes(x = Age, y = Sales)) +
+    geom_point(alpha=0.2) +
+    theme(aspect.ratio = 1)
+p7 <- ggplot(data = carseats, aes(x = Education, y = Sales)) +
+    geom_point(alpha=0.2) +
+    theme(aspect.ratio = 1)
+
+p1 + p2 + p3 + p4 + p5 + p6 + p7
+```
+
+`Price`: parece existir una relación negativa con Sales.
+
+`Advertising`: parece haber una relación positiva, aunque hay muchas observaciones con publicidad igual a cero.
+
+`Age`: se observa una posible relación negativa.
+
+`CompPrice` e `Income`: las relaciones parecen menos claras.
+
+`Population` y `Education`: no se aprecia una tendencia lineal evidente.
+
+Ahora veamos las relaciones entre las variables categoricas y la predictora:
+
+```{r, echo=FALSE, fig.height=3, fig.width=5}
+b1 <- ggplot(data = carseats, aes(x = ShelveLoc, y = Sales)) + 
+  geom_boxplot()
+b2 <- ggplot(data = carseats, aes(x = Urban, y = Sales)) + 
+  geom_boxplot()
+b3 <- ggplot(data = carseats, aes(x = US, y = Sales)) + 
+  geom_boxplot()
+
+b1 + b2 + b3
+```
+
+-   `ShelveLoc` : presenta diferencias claras entre categorías.
+
+-   `Urban` : muestra distribuciones muy similares.
+
+-   `US` : presenta una mediana algo mayor para Yes.
+
+## Datos de entrenamiento y de testeo
+
+Usamos el 80% de los datos para entrenar y el 20% para testear.
+
+```{r}
+carseats2 <- carseats %>% 
+  select(-(High))
+
+set.seed(11)
+
+carseats_split <- initial_split(carseats2, prop = 0.8)
+carseats_train <- training(carseats_split)
+carseats_test <- testing(carseats_split)
+
+carseats_split
+```
+
+## Definimos el modelo lineal
+
+```{r}
+mod_reg <- lm(Sales ~ ., data = carseats_train)
+summary(mod_reg)
+```
+## Diagnostico del modelo
+
+1. Utilice `augment()` para obtener los valores predichos y los residuos del modelo mod_reg.
+2. Construya un gráfico de residuos (`.resid`) en función de los valores ajustados (`.fitted`), utilizando `ggplot()` y `geom_point()`.
+3. Agregue una línea horizontal en cero con `geom_hline()`.
+4. ¿Qué observa respecto a la distribución de los residuos? ¿Se aprecia algún patrón?
+
+```{r}
+carseats_all <- broom::augment(mod_reg, new_data = carseats)
+
+# Ajustado vs observado
+p1 <- ggplot(carseats_all, aes(x = .fitted, y = Sales)) +
+    geom_point() + 
+    labs(title = "Observado vs predicho") +
+    theme(aspect.ratio = 1)
+
+# residuos vs. ajustado
+p2 <- ggplot(carseats_all, aes(x = .fitted, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+    labs(title = "Residuos vs ajustado") +
+    theme(aspect.ratio = 1)
+
+p1 + p2
+```
+Observado vs. predicho: los puntos siguen bastante bien una tendencia lineal.
+
+Residuos vs. ajustado: los residuos se distribuyen alrededor de cero y no se observa un patrón demasiado evidente.
+
+
+## Evaluación de modelo
+
+```{r}
+carseats_all_train <- broom::augment(mod_reg, newdata = carseats_train)
+
+metrics(data = carseats_all_train, 
+        truth = Sales, 
+        estimate = .fitted)
+```
+
+```{r}
+carseats_all_test <- broom::augment(mod_reg, newdata = carseats_test)
+
+metrics(data = carseats_all_test, 
+        truth = Sales, 
+        estimate = .fitted)
+```
+
+Las metricas entre lo que ajusta el modelo usando los datos de entrenamiento y con los datos de testeo es similar, el modelo parece funcionar bien.
+
+# Clasificación
+
+Trabajamos con los mismos datos pero buscamos predecir si un caso va a presentar ventas altas o no, usando la variable `High`, la cual está definina en base a la variable `Sales`, entonces ajustamos un carseats sin la variable `Sales`.
+
+```{r}
+carseats3 <- carseats %>% 
+  select(-(Sales))
+```
+
+## Datos de entrenamiento y de testeo
+
+```{r}
+set.seed(11)
+
+carseats_split <- initial_split(carseats3, prop = 0.8, strata = High)
+carseats_train <- training(carseats_split)
+carseats_test <- testing(carseats_split)
+
+carseats_split
+```
+## Definir Modelo de Clasificación
+
+```{r}
+# Definir receta
+carseats_recipe <- recipe(
+    High ~ .,
+    data = carseats_train)
+
+# Especificamos el modelo
+reglog_carseats <- logistic_reg() %>% 
+    set_engine("glm")
+
+# Definimos el workflow
+reglog_carseats_workflow <- workflow() %>% 
+    add_recipe(carseats_recipe) %>% 
+    add_model(reglog_carseats)
+
+# Ajustamos el modelo
+reglog_model <- reglog_carseats_workflow %>%
+  fit(data = carseats_train)
+
+reglog_model
+```
+- Workflow [trained]: el flujo quedó entrenado.
+
+- Preprocessor: Recipe: se incorporó correctamente la receta.
+
+- Model: logistic_reg(): se utilizó regresión logística.
+
+- stats::glm(..., family = binomial): el motor ajustó un modelo binomial.
+
+### Interpretar coeficientes
+
+```{r}
+library(dotwhisker)
+
+reglog_model %>% 
+  extract_fit_parsnip() %>% 
+  dwplot()
+```
+- Punto: estimación del coeficiente.
+
+- Línea horizontal: intervalo de confianza del coeficiente.
+
+- Línea vertical en 0: valor correspondiente a ausencia de efecto.
+
+En el gráfico se evalúa si se rechaza o no la hipótesis nula $H_0) \beta_j = 0$, observando si el intervalo de confianza contiene al cero.
+
+Si el intervalo contiene al cero, no se rechaza $H_0$, por lo que no hay evidencia suficiente para considerar que el coeficiente sea estadísticamente significativo.
+
+En este caso, las variables cuyos coeficientes consideramos no significativos son: US, Urban, Education, Population e Income.
+
+## Análisis Discriminante Lineal (LDA)
+
+Vamos a utilizar la misma receta y los mismos datos de entrenamiento que usamos para la regresión logística.
+
+Funciones y argumentos clave:
+
+- discrim_linear(): especifica el modelo LDA.
+- set_engine("MASS"): establece el motor.
+- workflow(): combina la receta y el modelo.
+- add_recipe() y add_model(): incorporan ambos componentes.
+- fit(data = carseats_train): ajusta el modelo.
+
+```{r}
+# Especificamos el modelo
+lda_spec <- discrim_linear(
+    mode = "classification") %>% 
+    set_engine("MASS")
+
+# Definimos el workflow
+lda_workflow <- workflow() %>% 
+    add_recipe(carseats_recipe) %>% 
+    add_model(lda_spec)
+
+# Ajustamos el modelo
+lda_model <- lda_workflow %>% 
+    fit(carseats_train)
+
+lda_model
+```
+## KNN con validación cruzada para elegir k
+
+Especificar un modelo KNN utilizando `nearest_neighbor()` de `parsnip`.
+
+Funciones y argumentos clave:
+- nearest_neighbor(neighbors = tune())
+- set_engine("kknn")
+- set_mode("classification")
+
+```{r}
+knn_spec <- nearest_neighbor(
+  neighbors = tune()) %>%
+  set_engine("kknn") %>%
+  set_mode("classification")
+```
+
+Construir `knn_workflow` combinando:
+- workflow()
+- add_recipe(carseats_recipe)
+- add_model(knn_spec)
+
+```{r}
+knn_workflow <- workflow() %>% 
+    add_recipe(carseats_recipe) %>% 
+    add_model(knn_spec)
+```
+
+Generar los pliegues para la validación cruzada utilizando `vfold_cv()`.
+
+Funciones y argumentos clave:
+
+- vfold_cv(data = carseats_train, v = 5, strata = High)
+
+Esto divide el conjunto de entrenamiento en 5 pliegues, manteniendo aproximadamente la proporción de las clases.
+
+```{r}
+set.seed(11)
+carseats_cv <- vfold_cv(data = carseats_train, v = 5, strata = High)
+```
+
+Utilizar `grid_regular()` para construir una grilla de valores de neighbors.
+
+Funciones y argumentos clave:
+- grid_regular()
+- neighbors(range = c(1, 30))
+- levels = 10
+
+```{r}
+knn_grid <- grid_regular(neighbors(range = c(1, 30)), levels = 10)
+```
+
+Utilizar `tune_grid()` para evaluar las distintas configuraciones.
+
+Argumentos clave:
+- object = knn_workflow
+- resamples = carseats_cv
+- grid = knn_grid
+
+```{r}
+knn_tune <- tune_grid(
+    knn_workflow,
+    resamples = carseats_cv,
+    grid = knn_grid
+)
+
+autoplot(knn_tune)
+```
+
+`Accuracy`: aumenta hasta aproximadamente $k=17$, donde alcanza su máximo (~0.79). Luego se mantiene relativamente estable.
+
+`Brier Class`: disminuye a medida que aumenta $k$, hasta estabilizarse cerca de 0.16. Cuanto menor, mejor.
+
+`ROC AUC`: aumenta progresivamente y alcanza su valor más alto cerca de $k=30$ (~0.85).
+
+Las tres métricas no necesariamente seleccionan el mismo $K$.
+
+
+`Accuracy`:	Proporción de aciertos (metric = "accuracy")
+`ROC AUC` :	Capacidad para distinguir las clases (metric = "roc_auc")	 
+`Brier Class` :	Calidad de las probabilidades predichas	(metric = "brier_class")
+
+Elegimos el mejor k segun `Accuracy`:
+
+```{r}
+best_k <- knn_tune %>% 
+    select_best(metric = "accuracy") 
+
+best_k
+```
+
+Utilizar `finalize_workflow()` para incorporar el hiperparámetro seleccionado al workflow.
+
+Argumentos clave:
+- x = knn_workflow
+- parameters = best_k
+
+```{r}
+knn_final <- finalize_workflow(knn_workflow, best_k)
+
+knn_model <- knn_final %>% 
+    fit(carseats_train)
+
+knn_model
+```
+## Evaluación de modelo
+
+1.  Defina un `metric_set()` con `accuracy`, `sens` y `spec` y calcúlelo para los tres modelos sobre el test.
+2.  Calcule además el AUC de cada modelo (necesita `.pred_1`, la probabilidad, no la clase).
+3.  Grafique las matrices de confusión y las curvas ROC de los tres modelos.
+4.  ¿Con cuál modelo se queda?
+
+```{r}
+auto_metrics <- metric_set(accuracy, sens, spec)
+
+models <- list("reglog" = reglog_model, "lda" = lda_model, "knn" = knn_model)
+
+results <- lapply(models, function(model) {
+    model %>% 
+        augment(new_data = carseats_test) |> # predice clase y probabilidades
+        auto_metrics(truth = High, estimate = .pred_class)
+})
+
+results <- list_rbind(results, names_to = "model")
+
+results %>% 
+    select(-.estimator) %>% 
+    pivot_wider(names_from = .metric, values_from = .estimate)
+```
+
+La tabla muestra 
+- Accuracy: proporción total de clasificaciones correctas.
+
+- Sensibilidad: proporción de tiendas con `High = Yes` que el modelo identifica correctamente.
+
+- Especificidad: proporción de tiendas con `High = No` que identifica correctamente.
+
+La regresión logística obtiene el mejor accuracy y sensibilidad. LDA tiene la mayor especificidad. KNN presenta un rendimiento considerablemente inferior, especialmente para identificar las tiendas con ventas altas. Podríamos preferir reglog o LDA antes que KNN.
+
+Calcular el AUC para los tres modelos utilizando:
+
+- roc_auc()
+- augment()
+- lapply()
+- list_rbind()
+
+```{r}
+aucs <- lapply(models, function(model) {
+    model %>% 
+        augment(new_data = carseats_test) %>% 
+        roc_auc(truth = High, .pred_Yes)
+})
+
+list_rbind(aucs, names_to = "model")
+```
+
+Reglog y LDA tienen mayor capacidad para predecir `High` que KNN.
+
+Utilizar `conf_mat()` y `autoplot()` para visualizar los aciertos y errores de clasificación.
+
+- augment()
+- conf_mat(truth = High, estimate = .pred_class)
+- autoplot(type = "heatmap")
+
+```{r}
+a1 <- reglog_model %>% 
+    augment(new_data = carseats_test) %>% 
+    conf_mat(truth = High, estimate = .pred_class) %>% 
+    autoplot(type = "heatmap") +
+    labs(title = "Regresión logística")
+
+a2 <- lda_model %>% 
+    augment(new_data = carseats_test) %>% 
+    conf_mat(truth = High, estimate = .pred_class) %>% 
+    autoplot(type = "heatmap") +
+    labs(title = "LDA")
+
+a3 <- knn_model %>% 
+    augment(new_data = carseats_test) %>% 
+    conf_mat(truth = High, estimate = .pred_class) %>% 
+    autoplot(type = "heatmap") +
+    labs(title = "KNN")
+
+a1 + a2 + a3
+```
+
+Parece que Regresión Logística es apenas mejor que LDA, y estas dos son bastante mejor en cuanto a predicción que KNN.
+
+Graficar las curvas ROC de los tres modelos.
+
+1. Usar roc_curve() sobre las predicciones de cada modelo.
+2. Combinar los resultados con list_rbind().
+3. Graficar con ggplot(), usando:
+   - Eje X: 1 - specificity.
+   - Eje Y: sensitivity.
+   - Color: modelo.
+4. Agregar la diagonal de referencia con geom_abline().
+
+```{r}
+curves <- lapply(models, function(model) {
+    model %>% 
+        augment(new_data = carseats_test) %>% 
+        roc_curve(truth = High, .pred_Yes)
+})
+
+curves <- list_rbind(curves, names_to = "model")
+
+ggplot(curves, aes(x = 1 - specificity, y = sensitivity, color = model)) +
+    geom_path() +
+    coord_equal() +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+    labs(
+        x = "1 - Especificidad",
+        y = "Sensibilidad",
+        color = "Modelo"
+    )
+```
+
+Regresión logística y LDA: sus curvas están prácticamente superpuestas y se acercan mucho al vértice superior izquierdo. Tienen una excelente capacidad de discriminación.
+
+KNN: su curva está más alejada del vértice, por lo que su capacidad de discriminación es inferior.
+
+Diagonal punteada: representa un clasificador aleatorio (AUC = 0.5).
+
+## Conclusión
+
+Considerando los resultados obtenidos, me inclinaría por elegir la regresión logística. Su desempeño es prácticamente igual al de LDA, con valores de accuracy y AUC muy similares, pero tiene la ventaja de ser un modelo más interpretable, ya que permite analizar el efecto de cada variable sobre la probabilidad de pertenecer a una categoría. Además, considero que todavía tiene margen de mejora, dado que inicialmente ajustamos el modelo utilizando todas las variables, sin explorar otras especificaciones ni evaluar si la eliminación de algunos predictores podría mejorar su desempeño. Por estos motivos, elegiría la regresión logística como modelo candidato.
+
+# Regularización
+
+Para este caso vamos a volver a trabajar con `carseats2` que quitaba la variable `High`, ya que vamos a predecir `Sales`, la variable númerica.
+
+```{r}
+glimpse(carseats2)
+```
+## Datos de entrenamiento y de testeo
+
+```{r}
+set.seed(11)
+carseats_split <- initial_split(carseats2, prop = 0.8)
+carseats_train <- training(carseats_split)
+carseats_test <- testing(carseats_split)
+
+carseats_split
+```
+## Receta y Workflow
+
+1. Definí una receta para predecir `Sales` usando todos los predictores disponibles, sobre los datos de entrenamiento.
+
+2. Aplicá `step_zv()` para eliminar predictores con varianza cero.
+
+3. Aplicá `step_normalize()` a todos los predictores numéricos.
+
+```{r}
+carseats_recipe <- recipe(Sales ~ ., data = carseats_train) %>%
+   step_dummy(all_nominal_predictors()) %>% 
+    step_zv(all_predictors()) %>%  # Quita variables constantes (que no suman info)
+    step_normalize(all_numeric_predictors()) # Normaliza todas las variables predictoras numericas
+
+carseats_recipe
+```
+1. Especificá un modelo de regresión lineal regularizada utilizando `linear_reg()`.
+
+2. Dejá los dos parámetros de regularización para ajustar mediante `tune()`:
+  - `penalty`: controla la intensidad de la penalización.
+  - `mixture`: determina qué combinación de penalizaciones se utiliza (Ridge o Lasso).
+
+3. Utilizá el motor `glmnet` mediante `set_engine()`.
+
+4. Definí el workflow combinando la receta que acabás de construir y la especificación del modelo, usando `workflow()`, `add_recipe()` y `add_model()`.
+
+```{r}
+linear_carseats <- linear_reg(penalty = tune(), mixture = tune()) %>% 
+    set_engine("glmnet")
+
+carseats_workflow <- workflow() %>% 
+    add_recipe(carseats_recipe) %>%  # el pre-procesamiento
+    add_model(linear_carseats) # la especificación de parsnip
+```
+
+## Ridge y Lasso
+
+`Ridge`: reduce los coeficientes hacia cero, pero no elimina variables. Es útil cuando queremos conservar todos los predictores, aunque reduciendo su influencia.
+
+`Lasso`: también reduce los coeficientes, pero puede llevarlos exactamente a cero. Por eso, además de regularizar, permite seleccionar variables y obtener modelos más simples.
+
+### Ajustar Ridge
+
+1. Creá una especificación Ridge a partir de `linear_carseats`, utilizando `update()`:
+  - `penalty = 0.1`
+  - `mixture = 0`
+  
+2. Creá `ridge_workflow` a partir de `carseats_workflow`, utilizando `update_model()` para incorporar la nueva especificación.
+
+3. Ajustá el workflow con `fit()` sobre `carseats_train`.
+
+```{r}
+ridge_mod <- update(linear_carseats,
+                    penalty = 0.1,
+                    mixture = 0)
+
+ridge_workflow <- update_model(carseats_workflow,
+                               ridge_mod)
+
+ridge_mod_fit <- ridge_workflow %>% 
+    fit(carseats_train)
+
+ridge_mod_fit %>% 
+    extract_fit_parsnip() %>% 
+    autoplot() +
+    labs(title = "Ridge")
+```
+
+### Ajustar Lasso
+
+Repetí el procedimiento para Lasso, cambiando `mixture = 1`.
+```{r}
+lasso_mod <- update(linear_carseats,
+                    penalty = 0.1,
+                    mixture = 1)
+
+lasso_workflow <- update_model(carseats_workflow,
+                               lasso_mod)
+
+lasso_mod_fit <- lasso_workflow %>% 
+    fit(carseats_train)
+
+lasso_mod_fit %>% 
+    extract_fit_parsnip() %>% 
+    autoplot() +
+    labs(title = "Lasso")
+```
+
+### Conclusiones de Ridge y Lasso
+
+::::
+Los gráficos de trayectorias de coeficientes muestran cómo varían los coeficientes de un modelo de regresión a medida que aumenta la penalización (`penalty`). En el eje horizontal se representa la intensidad de la penalización y en el vertical el valor de los coeficientes de cada variable. A medida que aumenta la penalización, los coeficientes se contraen hacia cero. En Ridge, los coeficientes disminuyen progresivamente, pero no llegan exactamente a cero; mientras que Lasso puede llevar algunos coeficientes a cero, realizando así una selección de variables. Por lo tanto, estos gráficos permiten visualizar cómo la regularización modifica la magnitud de los coeficientes y, en el caso de Lasso, qué variables pueden quedar excluidas del modelo.
+::::
+
+En nuestros gráficos observamos que, tanto para Ridge como para Lasso, las variables `Price` y `ShelveLoc_Good` son las que mantienen sus coeficientes distintos de cero durante un mayor recorrido de la penalización. En cambio, los coeficientes de los demás predictores se reducen más rápidamente. Esto indica que, bajo estos ajustes, `Price` y `ShelveLoc_Good` son las variables cuyos coeficientes resisten más la penalización. Sin embargo, todavía no podemos concluir cuál de los dos modelos tiene mejor capacidad predictiva; para eso necesitaremos comparar su desempeño mediante validación cruzada.
+
+## Elegir λ mediante validación cruzada.
+
+Hasta ahora usamos penalty = 0.1 para observar cómo funcionan Ridge y Lasso. Pero todavía no sabemos si ese valor es adecuado.
+
+El objetivo ahora es encontrar el valor de penalización que minimice el error de predicción.
+
+### Tunear Lasso
+
+Preparar el modelo para tuning:
+
+1. Partiendo de los objetos que ya definimos:
+  - `linear_carseats`
+  - `carseats_workflow`
+2. Crear una nueva especificación utilizando `update()` con:
+  - `penalty = tune()`
+  - `mixture = 1`
+3. Después, actualizar el workflow utilizando `update_model()`.
+
+```{r}
+lasso_mod2 <- update(linear_carseats,
+                    mixture = 1)
+
+lasso_workflow2 <- update_model(carseats_workflow,
+                               lasso_mod2)
+```
+
+### Validación cruzada
+
+Utilizar:
+  - `vfold_cv()` para generar 5 particiones de validación cruzada.
+  - `set.seed(11)` para reproducibilidad.
+  
+```{r}
+set.seed(11)
+carseats_cv <- vfold_cv(carseats_train, v = 5)
+```
+
+### Construir la grilla
+
+Utilizar `grid_regular()` y `penalty()` para generar una grilla de 50 valores de penalización, entre $10^{-5}$ y $10^0$. Usando `levels = 50` indica que se van a generar 50 valores distintos de $\lambda$ para evaluar el modelo Lasso.
+
+```{r}
+lambda_grid <- grid_regular(penalty(range = c(-5, 0)),
+                            levels = 50)
+```
+
+### Ajustar y evaluar
+
+Utilizar `tune_grid()` con tres argumentos principales:
+  - El workflow.
+  - `resamples`: las particiones de validación cruzada.
+  - `grid`: la grilla de penalizaciones.
+  
+Finalmente, utilizar `collect_metrics()` para recuperar las métricas.
+
+```{r}
+lasso_cv_tune <- tune_grid(
+    lasso_workflow2, #workflof
+    resamples = carseats_cv, # como quiero hacer ese resample
+    grid = lambda_grid # grilla
+)
+
+collect_metrics(lasso_cv_tune)
+```
+
+```{r}
+autoplot(lasso_cv_tune)
+```
+
+1. $RMSE$
+
+- Para valores bajos de $\lambda$, el RMSE se mantiene prácticamente constante, alrededor de 1,05.
+- A partir de aproximadamente $10^{-1}$, comienza a aumentar.
+- Cuando la penalización se acerca a 1, el error crece considerablemente.
+Interpretación: al aumentar demasiado la penalización, el modelo pierde capacidad predictiva. Los coeficientes se contraen demasiado y el ajuste empeora.
+
+2. $R^2$
+- Se mantiene alrededor de 0,86 para penalizaciones bajas.
+- Disminuye cuando aumenta $\lambda$.
+- Cae fuertemente para valores cercanos a 1.
+Esto es coherente con el comportamiento del RMSE: a mayor error, menor proporción de variabilidad explicada.
+
+### Elegir el mejor λ
+
+Utilizar `select_best()` para identificar el valor de `penalty` que minimiza el RMSE.
+
+```{r}
+# options(scipen = 999)
+select_best(lasso_cv_tune)
+```
+## Finalizar el modelo
+
+Ahora tenemos que:
+
+1. Usar `finalize_workflow()` para reemplazar `tune()` por el valor de penalización seleccionado.
+2. Aplicar `last_fit()` al workflow final y al objeto `carseats_split`.
+3. Recuperar las métricas con `collect_metrics()`.
+
+```{r}
+# Seleccionar el mejor lambda
+best_lambda <- select_best(lasso_cv_tune, metric = "rmse")
+
+# Finalizar el workflow
+lasso_final <- finalize_workflow(lasso_workflow2, best_lambda)
+
+# Ajustar el modelo final y evaluar en test
+lasso_last_fit <- last_fit(lasso_final, carseats_split)
+
+# Obtener métricas
+collect_metrics(lasso_last_fit)
+```
+El RMSE indica un error de predicción promedio en términos de la escala de Sales.
+
+El $R^2$ indica que el modelo explica aproximadamente el 87,1% de la variabilidad de Sales en el conjunto de test.

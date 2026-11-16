@@ -3,4 +3,84 @@ title: "QMD SOL"
 format: pdf
 ---
 
-Quarto doc con un poco de todo.
+```{r, include=FALSE}
+pkg <- c(
+  "tidyverse",
+  "tidymodels",
+  "ISLR2",
+  "broom",
+  "dotwhisker",
+  "patchwork",
+  "GGally",
+  "discrim",
+  "kknn",
+  "schrute",
+  "glmnet",
+  "ggrepel",
+  "boot",
+  "bootstrap",
+  "rpart",
+  "rpart.plot",
+  "randomForest",
+  "ranger",
+  "partykit",
+  "ppforest2",
+  "classbound",
+  "naniar"
+)
+# Instalar solamente si es necesario
+# install.packages(pkg)
+
+# Cargar paquetes
+library(tidyverse)
+library(tidymodels)
+library(ISLR2)
+library(rpart.plot)
+library(ppforest2)
+library(classbound)
+```
+
+# Simulacro
+
+## Cargar Datos
+
+```{r}
+plataforma <- read_csv("datos_plataforma.csv")
+
+glimpse(plataforma)
+```
+```{r}
+plataforma %>%
+  summarise(across(everything(), ~ sum(is.na(.))))
+```
+
+En las siguientes variables hay 260 datos faltantes (NA)
+
+- `Fecha`
+- `Codigo.Actividad`
+- `Minimo.Puntaje.Actividad`
+- `Maximo.Puntaje.Actividad`
+- `LB_Total.actividades`
+- `LB_Total.preguntas`
+- `LB_Total.preguntas.correctas`
+- `pct_acierto_act`
+
+Veamos si las variables guardadas como "character" podrían ser factor:
+
+```{r}
+plataforma %>%
+  select(where(is.character)) %>%
+  summarise(across(everything(), ~ n_distinct(., na.rm = TRUE)))
+```
+Convertimos las variables `Grupo`, `Codigo.Actividad` y `nivel` en factor y vemos los niveles para cada una:
+
+```{r}
+plataforma <- plataforma %>%
+  mutate(across(c(Grupo, Codigo.Actividad, nivel), as.factor))
+
+plataforma %>% 
+  select(where(is.factor)) %>% 
+  sapply(levels)
+```
+
+

@@ -1,0 +1,6 @@
+---
+title: "QMD SOL"
+format: pdf
+---
+
+Quarto doc con un poco de todo.

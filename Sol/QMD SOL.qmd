@@ -86,10 +86,11 @@ registra los puntos máximos y mínimos de la misma en la fecha correspondiente.
 
 - `nivel` Notas de la prueba adaptativa de inglés, variable categórico
 
-## USAR NANIAR!!
+
+## Datos faltantes
+
 ```{r}
-plataforma %>%
-  summarise(across(everything(), ~ sum(is.na(.))))
+miss_var_summary(plataforma)
 ```
 
 En las siguientes variables hay 260 datos faltantes (NA)
@@ -103,25 +104,71 @@ En las siguientes variables hay 260 datos faltantes (NA)
 - `LB_Total.preguntas.correctas`
 - `pct_acierto_act`
 
-```{r}
-library(visdat)
-vis_dat(plataforma)
-```
+El porcentaje de faltantes es de 1,13 % en cada una.
+
+### Visualicemos los datos faltantes
 ```{r}
 vis_miss(plataforma)
 ```
+- Los faltantes se concentran en las ocho variables que identificamos con `miss_var_summary()`.
+- Las variables identificativas (`id_persona`, `Grado`, `Grupo`, `id_centro`, `class_lb`) no presentan faltantes.
+- puntos y nivel tampoco presentan faltantes.
+- Los faltantes aparecen agrupados en determinadas filas, no distribuidos aleatoriamente a lo largo de la base.
+
+Mismo gráfico pero diversificado por tipo de variable
 ```{r}
-plataforma %>% 
-  select(ifelse(is.na(Fecha)))
+#vis_dat(plataforma)
 ```
 
 ```{r}
-## esto no carga!
-library(naniar)
-naniar::gn_case_miss(plataforma)
-
-gg_miss_upset(plataforma, nsets = n_var_miss(plataforma))
+gg_miss_upset(plataforma)
 ```
+- Barras horizontales (izquierda): muestran cuántos faltantes tiene cada variable.
+- Barra vertical (arriba): muestra cuántas filas presentan una combinación específica de faltantes.
+- Puntos conectados (abajo): indican qué variables forman esa combinación.
+En tu gráfico aparece una única combinación predominante, con 260 observaciones.
+
+Esto significa que las 260 filas tienen simultáneamente valores faltantes en las mismas variables. No estamos observando distintos patrones de ausencia.
+
+### Veamos si todas las NA se acumulan en un mismo dato identificativo: 
+
+`Grado`:
+```{r}
+plataforma %>%
+  filter(is.na(Fecha)) %>%
+  count(Grado)
+```
+ - El sexto grado concentra la mayor cantidad de casos (45,4%).
+
+`Grupo` : 
+```{r}
+plataforma %>%
+  filter(is.na(Fecha)) %>%
+  count(Grupo)
+```
+ - Los grupos A y B concentran 182 casos, aproximadamente el 70%.
+
+`id_centro` :
+```{r}
+plataforma %>%
+  filter(is.na(Fecha)) %>%
+  count(id_centro)
+```
+ - Acá el centro 1232 tiene 149 de los 260 casos, es decir, aproximadamente el 57,3%.
+
+`class_lb` :
+```{r}
+plataforma %>%
+  filter(is.na(Fecha)) %>%
+  count(class_lb)
+```
+ - Las 260 filas con Fecha = NA pertenecen a `class_lb = 785`, osea podemos suponer que la clase de ingles numero 785 no pudo responder o no tiene actividad registrada.
+ 
+ ### Conclusión
+ 
+Podemos imputar las variables con NA utilizando KNN o promediando datos de estudiantes similares. Sin embargo, para hacerlo sin generar fuga de información, tendríamos que utilizar únicamente variables identificativas (`Grado`, `Grupo` e `id_centro`), ya que no podemos utilizar `puntos` ni `nivel` si luego queremos predecirlos. No parece adecuado estimar las variables de actividad basándonos solamente en esos datos, porque no necesariamente representan el comportamiento real de los estudiantes. Por eso, conservamos la base tal como está, sin imputar ni eliminar observaciones.
+
+## Variables a factor
 
 Veamos si las variables guardadas como "character" podrían ser factor:
 

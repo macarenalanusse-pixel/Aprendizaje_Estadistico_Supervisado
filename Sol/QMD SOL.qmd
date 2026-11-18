@@ -38,6 +38,7 @@ library(ISLR2)
 library(rpart.plot)
 library(ppforest2)
 library(classbound)
+library(naniar)
 ```
 
 # Simulacro
@@ -92,6 +93,12 @@ registra los puntos máximos y mínimos de la misma en la fecha correspondiente.
 ```{r}
 miss_var_summary(plataforma)
 ```
+
+```{r}
+gg_miss_var(plataforma)
+```
+
+
 
 En las siguientes variables hay 260 datos faltantes (NA)
 
@@ -164,6 +171,18 @@ plataforma %>%
 ```
  - Las 260 filas con Fecha = NA pertenecen a `class_lb = 785`, osea podemos suponer que la clase de ingles numero 785 no pudo responder o no tiene actividad registrada.
  
+ 
+```{r}
+gg_miss_var(plataforma, facet = nivel, show_pct = TRUE)
+```
+veamos la relacion entre el `nivel` y `class_lb`
+
+```{r}
+ggplot(plataforma, aes(nivel, class_lb)) +
+  geom_boxplot()
+```
+Los datos faltantes no se acumulan especialmente para alguna clase de la variable `nivel`, y la misma tampoco parece seguir un patrón claro con respecto a la variable `clase_lb` en la cual se acumulan todos los NA para el valor 785.
+
  ### Conclusión
  
 Podemos imputar las variables con NA utilizando KNN o promediando datos de estudiantes similares. Sin embargo, para hacerlo sin generar fuga de información, tendríamos que utilizar únicamente variables identificativas (`Grado`, `Grupo` e `id_centro`), ya que no podemos utilizar `puntos` ni `nivel` si luego queremos predecirlos. No parece adecuado estimar las variables de actividad basándonos solamente en esos datos, porque no necesariamente representan el comportamiento real de los estudiantes. Por eso, conservamos la base tal como está, sin imputar ni eliminar observaciones.
@@ -177,6 +196,7 @@ plataforma %>%
   select(where(is.character)) %>%
   summarise(across(everything(), ~ n_distinct(., na.rm = TRUE)))
 ```
+
 Convertimos las variables `Grupo`, `Codigo.Actividad` y `nivel` en factor y vemos los niveles para cada una:
 
 ```{r}

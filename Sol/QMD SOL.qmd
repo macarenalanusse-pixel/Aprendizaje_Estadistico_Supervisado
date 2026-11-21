@@ -1,6 +1,9 @@
 ---
 title: "QMD SOL"
 format: pdf
+editor: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r, include=FALSE}
@@ -50,43 +53,52 @@ plataforma <- read_csv("datos_plataforma.csv")
 
 glimpse(plataforma)
 ```
-Conjunto de datos anonimizados para un subconjunto de estudiantes de educación primaria de cuarto a sexto año de contexto sociocultural alto del departamento de Canelones.
-Este conjunto de datos consite en registros de uso de una
-plataforma educativa específica para el aprendizaje de Inglés (`Little Bridge`). Cada Fila registra
-una actividad que realizá un estudiante determinado (`id_persona`) en una fecha (`Fecha`). Las
-actividades pueden realizarse más de una vez por lo que se cuenta con alguna variable que
-registra los puntos máximos y mínimos de la misma en la fecha correspondiente.
 
-- `id_persona` Identificador único del estudiante
+Conjunto de datos anonimizados para un subconjunto de estudiantes de
+educación primaria de cuarto a sexto año de contexto sociocultural alto
+del departamento de Canelones. Este conjunto de datos consite en
+registros de uso de una plataforma educativa específica para el
+aprendizaje de Inglés (`Little Bridge`). Cada Fila registra una
+actividad que realizá un estudiante determinado (`id_persona`) en una
+fecha (`Fecha`). Las actividades pueden realizarse más de una vez por lo
+que se cuenta con alguna variable que registra los puntos máximos y
+mínimos de la misma en la fecha correspondiente.
 
-- `Grado` Grado en el que estáel estudiante de cuarto a sexto
+-   `id_persona` Identificador único del estudiante
 
-- `Grupo` Grupo en el que estáel estudiante, de A a E
+-   `Grado` Grado en el que estáel estudiante de cuarto a sexto
 
-- `Fecha` Fecha en la que realiza la actividad
+-   `Grupo` Grupo en el que estáel estudiante, de A a E
 
-- `Codigo.Actividad` Identificador de Actividad, puede tener más de una pregunta
+-   `Fecha` Fecha en la que realiza la actividad
 
-- `Minimo.Puntaje.Actividad` Máximo puntaje obtenido en la actividad, entre 0 y 1
+-   `Codigo.Actividad` Identificador de Actividad, puede tener más de
+    una pregunta
 
-- `Maximo.Puntaje.Actividad` Mínimo puntaje obtenido en la actividad, entre 0 y 1
+-   `Minimo.Puntaje.Actividad` Máximo puntaje obtenido en la actividad,
+    entre 0 y 1
 
-- `LB_Total.actividades` Número total de actividades realizadas
+-   `Maximo.Puntaje.Actividad` Mínimo puntaje obtenido en la actividad,
+    entre 0 y 1
 
-- `LB_Total.preguntas` Número totaldepreguntas que contiene la actividad
+-   `LB_Total.actividades` Número total de actividades realizadas
 
-- `LB_Total.preguntas.correctas` Número de preguntas respondidas correctamente
+-   `LB_Total.preguntas` Número totaldepreguntas que contiene la
+    actividad
 
-- `id_centro` Identificador de centro único
+-   `LB_Total.preguntas.correctas` Número de preguntas respondidas
+    correctamente
 
-- `class_lb` Identificador de la Clase de Inglés
+-   `id_centro` Identificador de centro único
 
-- `pct_acierto_act` Proporción de preguntas correctas en la actividad
+-   `class_lb` Identificador de la Clase de Inglés
 
-- `punto` Resultados de la prueba adaptativa de inglés, variable numérica
+-   `pct_acierto_act` Proporción de preguntas correctas en la actividad
 
-- `nivel` Notas de la prueba adaptativa de inglés, variable categórico
+-   `punto` Resultados de la prueba adaptativa de inglés, variable
+    numérica
 
+-   `nivel` Notas de la prueba adaptativa de inglés, variable categórico
 
 ## Datos faltantes
 
@@ -98,31 +110,35 @@ miss_var_summary(plataforma)
 gg_miss_var(plataforma)
 ```
 
-
-
 En las siguientes variables hay 260 datos faltantes (NA)
 
-- `Fecha`
-- `Codigo.Actividad`
-- `Minimo.Puntaje.Actividad`
-- `Maximo.Puntaje.Actividad`
-- `LB_Total.actividades`
-- `LB_Total.preguntas`
-- `LB_Total.preguntas.correctas`
-- `pct_acierto_act`
+-   `Fecha`
+-   `Codigo.Actividad`
+-   `Minimo.Puntaje.Actividad`
+-   `Maximo.Puntaje.Actividad`
+-   `LB_Total.actividades`
+-   `LB_Total.preguntas`
+-   `LB_Total.preguntas.correctas`
+-   `pct_acierto_act`
 
 El porcentaje de faltantes es de 1,13 % en cada una.
 
 ### Visualicemos los datos faltantes
+
 ```{r}
 vis_miss(plataforma)
 ```
-- Los faltantes se concentran en las ocho variables que identificamos con `miss_var_summary()`.
-- Las variables identificativas (`id_persona`, `Grado`, `Grupo`, `id_centro`, `class_lb`) no presentan faltantes.
-- puntos y nivel tampoco presentan faltantes.
-- Los faltantes aparecen agrupados en determinadas filas, no distribuidos aleatoriamente a lo largo de la base.
+
+-   Los faltantes se concentran en las ocho variables que identificamos
+    con `miss_var_summary()`.
+-   Las variables identificativas (`id_persona`, `Grado`, `Grupo`,
+    `id_centro`, `class_lb`) no presentan faltantes.
+-   puntos y nivel tampoco presentan faltantes.
+-   Los faltantes aparecen agrupados en determinadas filas, no
+    distribuidos aleatoriamente a lo largo de la base.
 
 Mismo gráfico pero diversificado por tipo de variable
+
 ```{r}
 #vis_dat(plataforma)
 ```
@@ -130,62 +146,91 @@ Mismo gráfico pero diversificado por tipo de variable
 ```{r}
 gg_miss_upset(plataforma)
 ```
-- Barras horizontales (izquierda): muestran cuántos faltantes tiene cada variable.
-- Barra vertical (arriba): muestra cuántas filas presentan una combinación específica de faltantes.
-- Puntos conectados (abajo): indican qué variables forman esa combinación.
-En tu gráfico aparece una única combinación predominante, con 260 observaciones.
 
-Esto significa que las 260 filas tienen simultáneamente valores faltantes en las mismas variables. No estamos observando distintos patrones de ausencia.
+-   Barras horizontales (izquierda): muestran cuántos faltantes tiene
+    cada variable.
+-   Barra vertical (arriba): muestra cuántas filas presentan una
+    combinación específica de faltantes.
+-   Puntos conectados (abajo): indican qué variables forman esa
+    combinación. En tu gráfico aparece una única combinación
+    predominante, con 260 observaciones.
 
-### Veamos si todas las NA se acumulan en un mismo dato identificativo: 
+Esto significa que las 260 filas tienen simultáneamente valores
+faltantes en las mismas variables. No estamos observando distintos
+patrones de ausencia.
+
+### Veamos si todas las NA se acumulan en un mismo dato identificativo:
 
 `Grado`:
+
 ```{r}
 plataforma %>%
   filter(is.na(Fecha)) %>%
   count(Grado)
 ```
- - El sexto grado concentra la mayor cantidad de casos (45,4%).
 
-`Grupo` : 
+-   El sexto grado concentra la mayor cantidad de casos (45,4%).
+
+`Grupo` :
+
 ```{r}
 plataforma %>%
   filter(is.na(Fecha)) %>%
   count(Grupo)
 ```
- - Los grupos A y B concentran 182 casos, aproximadamente el 70%.
+
+-   Los grupos A y B concentran 182 casos, aproximadamente el 70%.
 
 `id_centro` :
+
 ```{r}
 plataforma %>%
   filter(is.na(Fecha)) %>%
   count(id_centro)
 ```
- - Acá el centro 1232 tiene 149 de los 260 casos, es decir, aproximadamente el 57,3%.
+
+-   Acá el centro 1232 tiene 149 de los 260 casos, es decir,
+    aproximadamente el 57,3%.
 
 `class_lb` :
+
 ```{r}
 plataforma %>%
   filter(is.na(Fecha)) %>%
   count(class_lb)
 ```
- - Las 260 filas con Fecha = NA pertenecen a `class_lb = 785`, osea podemos suponer que la clase de ingles numero 785 no pudo responder o no tiene actividad registrada.
- 
- 
+
+-   Las 260 filas con Fecha = NA pertenecen a `class_lb = 785`, osea
+    podemos suponer que la clase de ingles numero 785 no pudo responder
+    o no tiene actividad registrada.
+
 ```{r}
 gg_miss_var(plataforma, facet = nivel, show_pct = TRUE)
 ```
+
 veamos la relacion entre el `nivel` y `class_lb`
 
 ```{r}
 ggplot(plataforma, aes(nivel, class_lb)) +
   geom_boxplot()
 ```
-Los datos faltantes no se acumulan especialmente para alguna clase de la variable `nivel`, y la misma tampoco parece seguir un patrón claro con respecto a la variable `clase_lb` en la cual se acumulan todos los NA para el valor 785.
 
- ### Conclusión
- 
-Podemos imputar las variables con NA utilizando KNN o promediando datos de estudiantes similares. Sin embargo, para hacerlo sin generar fuga de información, tendríamos que utilizar únicamente variables identificativas (`Grado`, `Grupo` e `id_centro`), ya que no podemos utilizar `puntos` ni `nivel` si luego queremos predecirlos. No parece adecuado estimar las variables de actividad basándonos solamente en esos datos, porque no necesariamente representan el comportamiento real de los estudiantes. Por eso, conservamos la base tal como está, sin imputar ni eliminar observaciones.
+Los datos faltantes no se acumulan especialmente para alguna clase de la
+variable `nivel`, y la misma tampoco parece seguir un patrón claro con
+respecto a la variable `clase_lb` en la cual se acumulan todos los NA
+para el valor 785.
+
+### Conclusión
+
+Podemos imputar las variables con NA utilizando KNN o promediando datos
+de estudiantes similares. Sin embargo, para hacerlo sin generar fuga de
+información, tendríamos que utilizar únicamente variables
+identificativas (`Grado`, `Grupo` e `id_centro`), ya que no podemos
+utilizar `puntos` ni `nivel` si luego queremos predecirlos. No parece
+adecuado estimar las variables de actividad basándonos solamente en esos
+datos, porque no necesariamente representan el comportamiento real de
+los estudiantes. Por eso, conservamos la base tal como está, sin imputar
+ni eliminar observaciones.
 
 ## Variables a factor
 
@@ -197,15 +242,189 @@ plataforma %>%
   summarise(across(everything(), ~ n_distinct(., na.rm = TRUE)))
 ```
 
-Convertimos las variables `Grupo`, `Codigo.Actividad` y `nivel` en factor y vemos los niveles para cada una:
+Convertimos las variables `Grado`, `Grupo`, `Codigo.Actividad`, `nivel`, `id_centro` y `class_lb`en factor y vemos los niveles para cada una:
 
 ```{r}
 plataforma <- plataforma %>%
-  mutate(across(c(Grupo, Codigo.Actividad, nivel), as.factor))
+  mutate(across(c(Grado, Grupo, Codigo.Actividad, nivel, id_centro, class_lb), as.factor))
 
 plataforma %>% 
   select(where(is.factor)) %>% 
   sapply(levels)
 ```
 
+## Exploración de variables predictivas vs variables de respuesta.
 
+Las posibles variables de respuesta son `puntos` y `nivel`, en la
+primera opción nos enfrentamos a un problema de regresión y en la
+segunda a uno de clasificación, asi que hagamos una exploración enfocada
+en estas variables como objetivos a predecir.
+
+Las posibles variables predictivas son:
+
+-   `Grado`
+
+-   `Grupo`
+
+-   `Codigo.Actividad`
+
+-   `Minimo.Puntaje.Actividad`
+
+-   `Maximo.Puntaje.Actividad`
+
+-   `LB_Total.actividades`
+
+-   `LB_Total.preguntas`
+
+-   `LB_Total.preguntas.correctas`
+
+-   `class_lb`
+
+-   `pct_acierto_act`
+
+### La variable `puntos`:
+
+```{r}
+summary(plataforma$puntos)
+```
+
+-   Puntajes desde 237.1 hasta 900 puntos.
+-   La media y la mediana son cercanas, podemos descartar asimetrías
+    fuertes.
+-   Entre el primer cuantil y el tercero se acumulan el 50% de los
+    datos, puntajes entre 473.2 y 574.2, es poca diferencia teniendo en
+    cuenta el mínimo y el máximo, podemos sospechar que los datos se
+    acumulan en la mediana.
+
+```{r}
+hist(plataforma$puntos)
+```
+
+Parece que la mayoria de las puntuaciones se acumulan entre los 400 y
+los 600 puntos, se observa tambien una leve asimetría a la derecha y un
+grupo de valores elevados y juntos cerca de los 900 puntos.
+
+-   `Grado` (factor)
+-   `Grupo` (num)
+-   `Codigo.Actividad` (factor)
+-   `Minimo.Puntaje.Actividad` (num)
+-   `Maximo.Puntaje.Actividad` (num)
+-   `LB_Total.actividades`(num)
+-   `LB_Total.preguntas` (num)
+-   `LB_Total.preguntas.correctas` (num)
+-   `id_centro` (factor)
+-   `class_lb` (factor)
+-   `pct_acierto_act`(num)
+
+**Para las variables tipo factor:**
+```{r}
+ plataforma %>%
+  group_by(Codigo.Actividad) %>%
+  summarise(mediana = median(puntos, na.rm = TRUE)) %>%
+  ggplot(aes(x = reorder(factor(Codigo.Actividad), mediana), y = mediana)) +
+  geom_point() +
+  coord_flip() + 
+  theme(axis.text.y = element_blank())
+```
+Se observa una tendencia creciente, las actividades con códigos más
+altos tienden a presentar medianas de puntaje mayores. Aunque se
+identifica al una actividad con un código particularmente alto cuya
+mediana de puntaje es menor.
+
+Para las variables identificativas:
+
+```{r}
+ plataforma %>%
+  group_by(id_centro) %>%
+  summarise(mediana = median(puntos, na.rm = TRUE)) %>%
+  ggplot(aes(x = reorder(factor(id_centro), mediana), y = mediana)) +
+  geom_point() +
+  coord_flip() + 
+  theme(axis.text.y = element_blank())
+```
+```{r}
+plataforma %>%
+  group_by(class_lb) %>%
+  summarise(mediana = median(puntos, na.rm = TRUE)) %>%
+  ggplot(aes(x = reorder(factor(class_lb), mediana), y = mediana)) +
+  geom_point() +
+  coord_flip() + 
+  theme(axis.text.y = element_blank())
+```
+
+
+Ambas variables muestran diferencias entre categorías en la mediana de puntos. La variabilidad parece ser mayor entre las clases (`class_lb`) que entre los centros (`id_centro`).
+
+
+```{r}
+ggplot(plataforma, aes(x = Grado, y = puntos)) +
+  geom_boxplot()
+```
+Se observa que los puntajes aumentan con el grado. El grado 6 presenta la mediana más alta y una mayor dispersión, mientras que en el grado 4 los puntajes se concentran en un intervalo más reducido y alrededor de valores menores, además este último presenta una mayor cantidad de valores atípicos.
+
+**Para las variables numericas:**
+
+Cantidad de valores distintos en cada variable numerica:
+
+```{r}
+plataforma %>%
+  select(where(is.numeric)) %>%
+  summarise(across(everything(), ~ n_distinct(., na.rm = TRUE)))
+```
+
+-   Minimo.Puntaje.Actividad: 68.
+
+-   Maximo.Puntaje.Actividad: 68.
+
+-   LB_Total.actividades: 27.
+
+-   LB_Total.preguntas: 81.
+
+-   LB_Total.preguntas.correctas: 91.
+
+-   pct_acierto_act: 255.
+
+-   puntos: 996.
+
+```{r warning=FALSE}
+library(patchwork)
+g1 <- ggplot(plataforma, aes(x = Minimo.Puntaje.Actividad, y = puntos)) +
+  geom_jitter(alpha = 0.1)
+
+g2 <- ggplot(plataforma, aes(x = Maximo.Puntaje.Actividad, y = puntos)) +
+  geom_jitter(alpha = 0.1)
+
+g3 <- ggplot(plataforma, aes(x = LB_Total.actividades, y = puntos)) +
+  geom_jitter(alpha = 0.1)
+
+g4 <- ggplot(plataforma, aes(x = LB_Total.preguntas, y = puntos)) +
+  geom_jitter(alpha = 0.1)
+
+g5 <- ggplot(plataforma, aes(x = LB_Total.preguntas.correctas, y = puntos)) +
+  geom_jitter(alpha = 0.1)
+
+g6 <- ggplot(plataforma, aes(x = pct_acierto_act, y = puntos)) +
+  geom_jitter(alpha = 0.1)
+
+(g1 + g2) /
+(g3 + g4) /
+(g5 + g6) 
+```
+`Minimo.Puntaje.Actividad` y `Maximo.Puntaje.Actividad`: no se observa una tendencia clara.
+
+`LB_Total.actividades`, `LB_Total.preguntas` y `LB_Total.preguntas.correctas`: hay una posible tendencia decreciente en la dispersión de puntajes a medida que aumenta la variable, pero no una relación lineal evidente.
+
+`pct_acierto_act`: podría existir una tendencia creciente, aunque hay mucha dispersión.
+
+### La variable `nivel`:
+
+Siendo la siguiente jerarquía de niveles de inglés: 
+Pre-A1.1 → A1.1 → A1.2 → A2.1 → A2.2 → B1
+```{r}
+plataforma %>%
+  count(nivel) %>%
+  ggplot(aes(x = reorder(nivel, n), y = n)) +
+  geom_bar(stat = "identity")
+```
+
+El nivel que tiene mayor cantidad de alumnos es A1.2, mientras que Pre-A1.1 presenta la menor frecuencia. Esto indica que las clases no están balanceadas.
